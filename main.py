@@ -1,110 +1,56 @@
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox
-from PIL import Image, ImageFont, ImageDraw
-import matplotlib.pyplot as plt
-import numpy as np
-from datetime import datetime
+from tkinter import filedialog, messagebox, ttk
+from watermark import Watermarker  # Import Watermarker class from watermark.py
 
-
-class Watermarker:
-    def __init__(self):
-        self.base_image = None
-        self.new_image = None
-        self.watermark_size = 0.3
-        
-    def select_img(self, base_image_path):
-        self.base_image = Image.open(base_image_path)
-        self.new_image = self.base_image.copy()
-        self.w, self.h = self.base_image.size
-        
-
-    def add_text_watermark(self, user_text):
-        if self.base_image:
-            x, y = int(self.w//4), int(self.h//6)
-            draw = ImageDraw.Draw(self.new_image)
-            font_size = min(self.w, self.h) // 10
-            img_font = ImageFont.truetype("arial.ttf", font_size)
-            draw.text((x, y), user_text, fill=(255, 255, 255), font=img_font, anchor='mm')
-
-    def add_img_watermark(self, watermark_img=None):
-        if self.base_image:
-            size = (int(self.w * self.watermark_size), int(self.h * self.watermark_size))
-            x, y = int(self.w//10), int(self.h//8)
-
-            if watermark_img:
-                watermark = Image.open(watermark_img)
-                watermark.thumbnail(size)
-                self.new_image.paste(watermark, (x, y))
-            else:
-                # Use a shrunken version of the base image as the watermark
-                cropped_img = self.base_image.copy()
-                cropped_img.thumbnail(size)
-                self.new_image.paste(cropped_img, (x, y))
-
-    def save_watermarked_image(self, new_file_name):
-        if self.base_image:
-            current_datetime = datetime.now()
-            current_date = current_datetime.date()
-            current_time = current_datetime.strftime("%H-%M-%S")
-            time_stamp = f"{current_date}_{current_time}"
-            output_filename = f"{time_stamp}-{new_file_name}.jpg"
-            self.new_image.save(output_filename)
-            print(f"Watermarked image saved as {output_filename}")
-    
-    def update_watermark_size(self, scale):
-        self.watermark_size = scale / 100
-
-
-
-    def show_images(self):
-        if self.base_image:
-            plt.subplot(1, 2, 1)
-            plt.title("Original Image")
-            plt.imshow(self.base_image)
-            plt.axis('off')
-            plt.subplot(1, 2, 2)
-            plt.title("Watermarked Image")
-            plt.imshow(self.new_image)
-            plt.axis('off')
-            plt.show()
-
-            
-
-
+# Function to select the base image
 def select_base_image():
     file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp *.gif")])
     if file_path:
-        watermark.select_img(file_path)
-        base_image_label.config(text=f"Selected: {os.path.basename(file_path)}")
-        show_images_btn.config(state=tk.NORMAL)
+        watermark.select_img(file_path)  # Call select_img method from Watermarker class
+        base_image_label.config(text=f"Selected: {os.path.basename(file_path)}")  # Update label text
+        show_images_btn.config(state=tk.NORMAL)  # Enable show images button
+        update_watermark_size(size_slider.get())  # Update watermark size
 
-def apply_text_watermark():
-    user_text = text_entry.get()
-    if user_text and watermark.new_image:
-        watermark.add_text_watermark(user_text)
-        watermark.show_images()
-
+# Function to apply image watermark
 def apply_image_watermark():
     file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp *.gif")])
-    if file_path and watermark.new_image:
-        watermark.add_img_watermark(file_path)
-        watermark.show_images()
+    if file_path and watermark.base_image:
+        watermark.add_img_watermark(file_path)  # Call add_img_watermark method from Watermarker class
+        watermark.show_images()  # Display images with watermark
 
+# Function to save the watermarked image
 def save_image():
     new_file_name = file_name_entry.get()
     if new_file_name:
-        watermark.save_watermarked_image(new_file_name)
+        watermark.save_watermarked_image(new_file_name)  # Call save_watermarked_image method from Watermarker class
+    else:
+        messagebox.showerror("Error", "Please enter a file name to save the image")
 
+# Function to update watermark size
 def update_watermark_size(value):
-    watermark.set_watermark_size(int(value))
+    watermark.set_watermark_size(int(value))  # Call set_watermark_size method from Watermarker class
+    if watermark.base_image:
+        watermark.show_images()  # Display images with updated watermark size
+
+# Function to update watermark opacity
+def update_opacity(value):
+    watermark.wtm_options['opacity'] = int(value) / 100  # Update opacity in watermark options
+    if watermark.base_image and watermark.watermark_img:
+        watermark._apply_watermark()  # Reapply watermark with updated opacity
+        watermark.show_images()  # Display images with updated opacity
+
+# Function to update watermark position
+def update_watermark_position(event):
+    position = position_combobox.get()
+    watermark.set_watermark_position(position)  # Call set_watermark_position method from Watermarker class
 
 # Create main window
 window = tk.Tk()
 window.title("Watermarker")
-window.geometry("400x400")
+window.geometry("400x500")
 
-watermark = Watermarker()
+watermark = Watermarker()  # Initialize Watermarker object
 
 # GUI elements
 select_image_btn = tk.Button(window, text="Select Base Image", command=select_base_image)
@@ -112,13 +58,6 @@ select_image_btn.pack(pady=10)
 
 base_image_label = tk.Label(window, text="No image selected")
 base_image_label.pack(pady=5)
-
-text_entry = tk.Entry(window, width=30)
-text_entry.pack(pady=10)
-text_entry.insert(0, "Enter text watermark")
-
-apply_text_btn = tk.Button(window, text="Apply Text Watermark", command=apply_text_watermark)
-apply_text_btn.pack(pady=5)
 
 apply_image_btn = tk.Button(window, text="Apply Image Watermark", command=apply_image_watermark)
 apply_image_btn.pack(pady=5)
@@ -130,6 +69,22 @@ size_slider = tk.Scale(window, from_=10, to=100, orient='horizontal', command=up
 size_slider.set(30)  # Default size
 size_slider.pack(pady=5)
 
+opacity_label = tk.Label(window, text="Watermark Opacity:")
+opacity_label.pack(pady=5)
+
+opacity_slider = tk.Scale(window, from_=0, to=100, orient='horizontal', command=update_opacity)
+opacity_slider.set(100)  # Default opacity
+opacity_slider.pack(pady=5)
+
+position_label = tk.Label(window, text="Watermark Position:")
+position_label.pack(pady=5)
+
+positions = ['Top Left', 'Top Right', 'Center', 'Bottom Left', 'Bottom Right']
+position_combobox = ttk.Combobox(window, values=positions)
+position_combobox.set('Bottom Right')
+position_combobox.pack(pady=5)
+position_combobox.bind("<<ComboboxSelected>>", update_watermark_position)
+
 file_name_entry = tk.Entry(window, width=30)
 file_name_entry.pack(pady=10)
 file_name_entry.insert(0, "Enter file name to save")
@@ -139,7 +94,6 @@ save_image_btn.pack(pady=5)
 
 show_images_btn = tk.Button(window, text="Show Images", command=watermark.show_images, state=tk.DISABLED)
 show_images_btn.pack(pady=5)
-
 
 # Run the Tkinter event loop
 window.mainloop()
